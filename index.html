@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LogicStudio Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{--bg:#0f172a;--panel:#111c33;--line:#1e293b;--hi:#ef4444;--lo:#64748b;--txt:#e2e8f0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--txt);font-family:'Bricolage Grotesque',system-ui,sans-serif}
+#app{display:flex;height:100%}
+aside{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:12px}
+aside h1{font-size:19px;margin:0 0 2px;font-weight:700}
+aside h2{font-size:12px;color:#94a3b8;margin:14px 0 6px;font-weight:500}
+.add{display:block;width:100%;text-align:left;background:var(--bg);border:1px solid #27344f;color:var(--txt);border-radius:6px;padding:6px 8px;margin-bottom:4px;font:500 13px 'Bricolage Grotesque',sans-serif;cursor:pointer}
+.add small{display:block;color:#7c8aa5;font-size:11px;font-weight:400}
+.add:hover,.add:focus-visible{border-color:var(--hi);outline:0}
+#clr{width:100%;margin-top:10px;background:#3b1219;border:1px solid #7f1d1d;color:#fecaca;border-radius:6px;padding:7px;cursor:pointer;font:500 13px 'Bricolage Grotesque',sans-serif}
+#clr:hover{background:#5b1a24}
+#cv{position:relative;flex:1;overflow:hidden;background-color:var(--bg);background-image:linear-gradient(#1a2540 1px,transparent 1px),linear-gradient(90deg,#1a2540 1px,transparent 1px);background-size:24px 24px}
+#w{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#w path{fill:none;stroke:var(--lo);stroke-width:3;stroke-linecap:round;pointer-events:stroke;cursor:pointer}
+#w path.h{stroke:var(--hi);filter:drop-shadow(0 0 5px #ef4444)}
+#w path:hover{stroke-width:6}
+.comp{position:absolute;user-select:none;touch-action:none;font-size:12px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:6px;background:#22304d;border-radius:6px 6px 0 0;padding:3px 7px;cursor:grab;font-weight:700}
+.hd button{background:none;border:0;color:#94a3b8;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+.hd button:hover{color:var(--hi)}
+.bd{position:relative;background:#161c2a;border:1px solid #2a3550;border-top:0;border-radius:0 0 6px 6px}
+.nt{position:absolute;top:0;left:50%;width:16px;height:8px;margin-left:-8px;border-radius:0 0 8px 8px;background:#22304d}
+.pin{position:absolute;width:12px;height:12px;border-radius:50%;background:#94a3b8;border:2px solid var(--bg);cursor:crosshair;transform:translateY(-50%);box-sizing:content-box}
+.pin.h{background:var(--hi);box-shadow:0 0 7px var(--hi)}
+.pin.sel{outline:2px solid #facc15}
+.pin.pw{background:#334155;cursor:not-allowed}
+.pl{position:absolute;font:400 10px 'IBM Plex Mono',monospace;color:#9fb0cc;transform:translateY(-50%);white-space:nowrap}
+.ct{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:15px;pointer-events:none}
+.sw{pointer-events:auto;width:64px;height:26px;border-radius:13px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font:700 11px 'IBM Plex Mono',monospace;cursor:pointer}
+.sw.on{background:#7f1d1d;border-color:var(--hi);color:#fff}
+.led{width:22px;height:22px;border-radius:50%;background:#334155;border:2px solid #475569}
+.led.on{background:var(--hi);border-color:#fca5a5;box-shadow:0 0 16px var(--hi)}
+#hint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#64748b;pointer-events:none;padding:24px}
+#st{position:absolute;left:12px;bottom:12px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 10px;font-size:12px;display:none}
+@media(max-width:640px){#app{flex-direction:column}aside{width:auto;height:170px;border-right:0;border-bottom:1px solid var(--line)}}
+</style></head>
+<body>
+<div id="app">
+<aside>
+ <h1>LogicStudio Pro</h1>
+ <p class="text-xs" style="color:#7c8aa5;margin:0">Digital logic IC simulator</p>
+ <div id="lib"></div>
+ <button id="clr">Clear canvas</button>
+</aside>
+<main id="cv">
+ <svg id="w"></svg>
+ <p id="hint">Add parts from the left.<br>Click one pin, then another, to draw a wire. Click a wire to delete it.</p>
+ <div id="st"></div>
+</main>
+</div>
+<script>
+const and=(a,b)=>a&&b,or=(a,b)=>a||b,nand=(a,b)=>!(a&&b),nor=(a,b)=>!(a||b),xor=(a,b)=>a!==b;
+function gateIC(title,sub,pairs,f,un){
+  const names=[],outs=[];
+  pairs.forEach((p,i)=>{const y=p[p.length-1];p.slice(0,-1).forEach((a,j)=>names[a]=(i+1)+(un?'A':'AB'[j]));names[y]=(i+1)+'Y';outs.push(y)});
+  names[7]='GND';names[14]='VCC';
+  return{g:'Logic gate ICs',title,sub,n:14,names,outs,ev:g=>{const o={};pairs.forEach(p=>{o[p[p.length-1]]=!!f(...p.slice(0,-1).map(g))});return o}};
+}
+const std=[[1,2,3],[4,5,6],[10,9,8],[13,12,11]],nr=[[2,3,1],[5,6,4],[8,9,10],[11,12,13]];
+const ff=(c,k)=>{c.m=c.m||{q:[false,false],p:[false,false]};return c.m};
+const defs={
+ vcc:{g:'Inputs',title:'+5V VCC',sub:'Constant HIGH',side:'r',label:'+5 V',src:()=>true},
+ gnd:{g:'Inputs',title:'GND (0V)',sub:'Constant LOW',side:'r',label:'0 V',src:()=>false},
+ sw:{g:'Inputs',title:'Toggle Switch',sub:'Manual ON/OFF',side:'r',src:c=>c.on},
+ clk:{g:'Inputs',title:'Clock Pulse',sub:'500 ms cycle',side:'r',label:'500 ms',src:(c,t)=>t},
+ led:{g:'Outputs',title:'LED Indicator',sub:'Lights on HIGH',side:'l'},
+ 7408:gateIC('IC 7408','Quad 2-input AND',std,and),
+ 7432:gateIC('IC 7432','Quad 2-input OR',std,or),
+ 7400:gateIC('IC 7400','Quad 2-input NAND',std,nand),
+ 7402:gateIC('IC 7402','Quad 2-input NOR',nr,nor),
+ 7404:gateIC('IC 7404','Hex inverter / NOT',[[1,2],[3,4],[5,6],[9,8],[11,10],[13,12]],a=>!a,1),
+ 7486:gateIC('IC 7486','Quad 2-input XOR',std,xor),
+ 7474:{g:'Advanced ICs',title:'IC 7474',sub:'Dual D flip-flop',n:14,lo:[1,4,10,13],
+  names:[,'1CLR','1D','1CK','1PR','1Q',"1Q'",'GND',"2Q'",'2Q','2PR','2CK','2D','2CLR','VCC'],outs:[5,6,8,9],
+  ev:(g,c)=>{const m=ff(c),o={};
+   [[1,2,3,4,5,6],[13,12,11,10,9,8]].forEach(([cl,d,ck,pr,q,qb],k)=>{const clk=g(ck);
+    if(!g(pr))m.q[k]=true;else if(!g(cl))m.q[k]=false;else if(clk&&!m.p[k])m.q[k]=g(d);
+    m.p[k]=clk;o[q]=m.q[k];o[qb]=!m.q[k]});return o}},
+ 7476:{g:'Advanced ICs',title:'IC 7476',sub:'Dual JK flip-flop',n:16,lo:[2,3,7,8],
+  names:[,'1CK','1PR','1CLR','1J','VCC','2CK','2PR','2CLR','2J',"2Q'",'2Q','2K','GND',"1Q'",'1Q','1K'],outs:[10,11,14,15],
+  ev:(g,c)=>{const m=ff(c),o={};
+   [[1,2,3,4,16,15,14],[6,7,8,9,12,11,10]].forEach(([ck,pr,cl,j,kk,q,qb],k)=>{const clk=g(ck);
+    if(!g(pr))m.q[k]=true;else if(!g(cl))m.q[k]=false;
+    else if(!clk&&m.p[k]){const J=g(j),K=g(kk);m.q[k]=J&&K?!m.q[k]:J?true:K?false:m.q[k]}
+    m.p[k]=clk;o[q]=m.q[k];o[qb]=!m.q[k]});return o}},
+ 7483:{g:'Advanced ICs',title:'IC 7483',sub:'4-bit full adder',n:16,
+  names:[,'A4','S3','A3','B3','VCC','S2','B2','A2','S1','A1','B1','GND','C0','C4','S4','B4'],outs:[2,6,9,15,14],
+  ev:g=>{const A=[10,8,3,1],B=[11,7,4,16],S=[9,6,2,15],o={};let c=g(13)?1:0;
+   for(let i=0;i<4;i++){const s=(g(A[i])?1:0)+(g(B[i])?1:0)+c;o[S[i]]=!!(s&1);c=s>>1}o[14]=!!c;return o}},
+ 74151:{g:'Advanced ICs',title:'IC 74151',sub:'8-to-1 multiplexer',n:16,
+  names:[,'D3','D2','D1','D0','Y','W','E','GND','C','B','A','D7','D6','D5','D4','VCC'],outs:[5,6],
+  ev:g=>{const s=(g(9)?4:0)+(g(10)?2:0)+(g(11)?1:0),D=[4,3,2,1,15,14,13,12],y=!g(7)&&g(D[s]);return{5:y,6:!y}}}
+};
+const $=s=>document.querySelector(s),cv=$('#cv'),svg=$('#w');
+const comps={},wires=[],win={};let uid=0,z=1,pend=null,drag=null,stT;
+const NS='http://www.w3.org/2000/svg';
+
+// sidebar
+let lib='',grp='';
+for(const k in defs){const d=defs[k];if(d.g!==grp){grp=d.g;lib+=`<h2>${grp}</h2>`}
+ lib+=`<button class="add" data-k="${k}">${d.title}<small>${d.sub}</small></button>`}
+$('#lib').innerHTML=lib;
+$('#lib').onclick=e=>{const b=e.target.closest('.add');if(b)add(b.dataset.k)};
+$('#clr').onclick=()=>{[...wires].forEach(rmWire);Object.values(comps).forEach(rmComp);pend=null;$('#hint').hidden=false};
+
+function say(t){const s=$('#st');s.textContent=t;s.style.display='block';clearTimeout(stT);stT=setTimeout(()=>s.style.display='none',2200)}
+
+function add(k){
+  const id=++uid,d=defs[k],c={id,k,x:30+(id*34)%280,y:30+(id*46)%300,o:{},on:false,pins:{},dir:{}};
+  comps[id]=c;
+  const el=document.createElement('div');el.className='comp';el.dataset.id=id;el.style.cssText=`left:${c.x}px;top:${c.y}px;z-index:${++z};width:${d.n?150:130}px`;
+  let b='';
+  if(d.n){
+    const rows=d.n/2,h=rows*22+12;b=`<div class="bd" style="height:${h}px"><i class="nt"></i>`;
+    for(let i=0;i<rows;i++){const y=18+i*22;
+      [[i+1,'left'],[d.n-i,'right']].forEach(([p,s])=>{const nm=d.names[p],pw=nm==='VCC'||nm==='GND';
+        c.dir[p]=pw?'w':d.outs.includes(p)?'o':'i';
+        b+=`<b class="pin${pw?' pw':''}" data-p="${p}" style="top:${y}px;${s}:-8px"></b><span class="pl" style="top:${y}px;${s}:9px">${s==='left'?p+' '+nm:nm+' '+p}</span>`})}
+    b+='</div>';
+  }else{
+    c.dir[1]=d.side==='r'?'o':'i';
+    const inner=k==='sw'?'<button class="sw"></button>':k==='led'?'<i class="led"></i>':d.label;
+    b=`<div class="bd" style="height:46px"><div class="ct">${inner}</div><b class="pin" data-p="1" style="top:23px;${d.side==='r'?'right':'left'}:-8px"></b></div>`;
+  }
+  el.innerHTML=`<div class="hd"><span>${d.title}</span><button title="Delete">✕</button></div>${b}`;
+  cv.appendChild(el);c.el=el;
+  el.querySelectorAll('.pin').forEach(p=>c.pins[p.dataset.p]=p);
+  c.led=el.querySelector('.led');c.sw=el.querySelector('.sw');
+  if(c.sw)c.sw.onclick=()=>{c.on=!c.on};
+  $('#hint').hidden=true;
+}
+function rmComp(c){wires.filter(w=>w.f.c===c.id||w.t.c===c.id).forEach(rmWire);c.el.remove();delete comps[c.id]}
+function rmWire(w){w.el.remove();wires.splice(wires.indexOf(w),1);delete win[w.t.c+':'+w.t.p]}
+function connect(f,t){
+  const old=win[t.c+':'+t.p];if(old)rmWire(old);
+  const el=document.createElementNS(NS,'path'),w={f,t,el};
+  el.onclick=()=>rmWire(w);svg.appendChild(el);wires.push(w);win[t.c+':'+t.p]=w;draw();
+}
+cv.addEventListener('click',e=>{
+  const x=e.target.closest('.hd button');if(x){rmComp(comps[x.closest('.comp').dataset.id]);return}
+  const p=e.target.closest('.pin');if(!p||p.classList.contains('pw'))return;
+  const c=comps[p.closest('.comp').dataset.id],ref={c:c.id,p:+p.dataset.p};
+  if(!pend){pend={ref,el:p};p.classList.add('sel');return}
+  pend.el.classList.remove('sel');const a=pend.ref;pend=null;
+  if(a.c===ref.c&&a.p===ref.p)return;
+  const da=comps[a.c].dir[a.p],db=c.dir[ref.p];
+  if(da==='o'&&db==='i')connect(a,ref);else if(da==='i'&&db==='o')connect(ref,a);
+  else say('Wire an output pin to an input pin.');
+});
+cv.addEventListener('pointerdown',e=>{
+  const h=e.target.closest('.hd');if(!h||e.target.closest('button'))return;
+  const c=comps[h.parentNode.dataset.id];c.el.style.zIndex=++z;
+  drag={c,dx:e.clientX-c.x,dy:e.clientY-c.y};h.setPointerCapture(e.pointerId);
+});
+addEventListener('pointermove',e=>{if(!drag)return;const c=drag.c;
+  c.x=Math.max(0,e.clientX-drag.dx);c.y=Math.max(0,e.clientY-drag.dy);
+  c.el.style.left=c.x+'px';c.el.style.top=c.y+'px';draw()});
+addEventListener('pointerup',()=>drag=null);
+
+const inV=(c,p)=>{const w=win[c.id+':'+p];if(w)return!!comps[w.f.c].o[w.f.p];const l=defs[c.k].lo;return!!(l&&l.includes(p))};
+function step(){
+  const t=Math.floor(Date.now()/250)%2===1;
+  for(let k=0;k<6;k++){
+    const nx=[];
+    for(const c of Object.values(comps)){const d=defs[c.k];
+      if(d.src)nx.push([c,{1:d.src(c,t)}]);else if(d.ev)nx.push([c,d.ev(p=>inV(c,p),c)])}
+    nx.forEach(([c,o])=>Object.assign(c.o,o));
+  }
+  draw();
+}
+function draw(){
+  const r=cv.getBoundingClientRect(),pt=(ref)=>{const b=comps[ref.c].pins[ref.p].getBoundingClientRect();return[b.left+b.width/2-r.left,b.top+b.height/2-r.top]};
+  for(const w of wires){
+    const[x1,y1]=pt(w.f),[x2,y2]=pt(w.t),dx=Math.max(50,Math.abs(x2-x1)/2);
+    w.el.setAttribute('d',`M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`);
+    w.el.classList.toggle('h',!!comps[w.f.c].o[w.f.p]);
+  }
+  for(const c of Object.values(comps)){
+    for(const p in c.pins)if(c.dir[p]!=='w')c.pins[p].classList.toggle('h',c.dir[p]==='o'?!!c.o[p]:inV(c,+p));
+    if(c.led)c.led.classList.toggle('on',inV(c,1));
+    if(c.sw){c.sw.classList.toggle('on',c.on);c.sw.textContent=c.on?'ON':'OFF'}
+  }
+}
+setInterval(step,60);
+</script>
+</body></html>
